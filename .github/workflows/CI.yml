@@ -176,13 +176,15 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
       - name: create npm dirs
-        run: node scripts/create-npm.js
+        run: |
+          node scripts/create-npm.js
+          ls -R npm
       - name: Download all artifacts
         uses: actions/download-artifact@v7
         with:
           path: artifacts
       - name: Move artifacts
-        run: npm run artifacts
+        run: npm run artifacts -- --dist npm
       - name: List packages
         run: ls -R ./npm
         shell: bash
