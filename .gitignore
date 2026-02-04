@@ -141,6 +141,5 @@ Thumbs.db
 # Auto-generated napi-rs bindings
 index.js
 index.d.ts
-index.mjs
 browser.js
 
