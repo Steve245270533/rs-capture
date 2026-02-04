@@ -193,7 +193,7 @@ struct XCapBackend {
 
 enum BackendWrapper {
   #[cfg(target_os = "macos")]
-  SCK(SCKBackend),
+  Sck(SCKBackend),
   XCap(XCapBackend),
 }
 
@@ -225,10 +225,8 @@ impl ScreenCapture {
     let mut fps = 60;
 
     if let Some(cfg) = &config {
-      if let Some(bk) = &cfg.backend {
-        if let CaptureBackend::ScreenCaptureKit = bk {
-          use_sck = true;
-        }
+      if let Some(CaptureBackend::ScreenCaptureKit) = &cfg.backend {
+        use_sck = true;
       }
       if let Some(f) = cfg.fps {
         fps = f;
@@ -246,7 +244,7 @@ impl ScreenCapture {
     let wrapper = if use_sck {
       #[cfg(target_os = "macos")]
       {
-        BackendWrapper::SCK(SCKBackend {
+        BackendWrapper::Sck(SCKBackend {
           stream: None,
           delegate: None,
         })
@@ -278,7 +276,7 @@ impl ScreenCapture {
     let mut backend_guard = self.backend.lock().await;
     match *backend_guard {
       #[cfg(target_os = "macos")]
-      BackendWrapper::SCK(ref mut sck) => Self::start_sck(sck, self.tsfn.clone(), self.fps).await,
+      BackendWrapper::Sck(ref mut sck) => Self::start_sck(sck, self.tsfn.clone(), self.fps).await,
       BackendWrapper::XCap(ref mut xcap) => Self::start_xcap(xcap, self.tsfn.clone(), self.fps),
     }
   }
@@ -288,7 +286,7 @@ impl ScreenCapture {
     let mut backend_guard = self.backend.blocking_lock();
     match *backend_guard {
       #[cfg(target_os = "macos")]
-      BackendWrapper::SCK(ref mut sck) => Self::stop_sck(sck),
+      BackendWrapper::Sck(ref mut sck) => Self::stop_sck(sck),
       BackendWrapper::XCap(ref mut xcap) => Self::stop_xcap(xcap),
     }
   }
@@ -365,7 +363,7 @@ impl ScreenCapture {
       let delegate = StreamDelegate::new(tsfn);
 
       let queue =
-        unsafe { dispatch_queue_create(b"com.napi.sck\0".as_ptr() as *const i8, ptr::null_mut()) };
+        unsafe { dispatch_queue_create(c"com.napi.sck".as_ptr(), ptr::null_mut()) };
 
       unsafe {
         let _: bool = msg_send![&stream, addStreamOutput: &*delegate, type: SCStreamOutputType::Screen, sampleHandlerQueue: queue as *mut NSObject, error: ptr::null_mut::<*mut NSError>()];
