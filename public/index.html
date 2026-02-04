@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Screen Capture Stream</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #1a1a1a;
+        color: white;
+        font-family: sans-serif;
+      }
+      #fps {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        padding: 8px 16px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 4px;
+        font-weight: bold;
+        pointer-events: none; /* Let clicks pass through */
+      }
+      #stream {
+        max-width: 100%;
+        max-height: 100vh;
+        object-fit: contain;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="fps">FPS: 0</div>
+    <img id="stream" alt="Screen Stream" />
+
+    <script>
+      const fpsEl = document.getElementById('fps')
+      const imgEl = document.getElementById('stream')
+      let wsClient = null
+
+      // FPS Calculation
+      let frameCount = 0
+      let lastTime = performance.now()
+
+      function updateFPS() {
+        const now = performance.now()
+        const delta = now - lastTime
+
+        if (delta >= 1000) {
+          const fps = Math.round((frameCount * 1000) / delta)
+          fpsEl.textContent = `FPS: ${fps}`
+          frameCount = 0
+          lastTime = now
+        }
+
+        requestAnimationFrame(updateFPS)
+      }
+
+      updateFPS()
+
+      function connect() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const ws = new WebSocket(`${protocol}//${window.location.host}`)
+        wsClient = ws
+
+        ws.binaryType = 'blob'
+
+        ws.onopen = () => {
+          console.log('Connected - Receiving Stream')
+          setupInputListeners()
+        }
+
+        ws.onmessage = (event) => {
+          frameCount++ // Increment FPS counter
+          const blob = event.data
+          const url = URL.createObjectURL(blob)
+
+          // Revoke previous URL to prevent memory leak
+          if (imgEl.src && imgEl.src.startsWith('blob:')) {
+            URL.revokeObjectURL(imgEl.src)
+          }
+
+          imgEl.src = url
+        }
+
+        ws.onclose = () => {
+          console.log('Disconnected - Reconnecting...')
+          setTimeout(connect, 3000)
+        }
+
+        ws.onerror = (err) => {
+          console.error('WebSocket error:', err)
+          ws.close()
+        }
+      }
+
+      function setupInputListeners() {
+        if (!imgEl) return
+
+        // Mouse Move
+        imgEl.addEventListener('mousemove', (e) => {
+          sendEvent({
+            type: 'mousemove',
+            x: e.clientX, // Note: This needs coordinate mapping if image is scaled
+            y: e.clientY
+          })
+        })
+
+        // Mouse Click
+        imgEl.addEventListener('mousedown', (e) => {
+          sendEvent({
+            type: 'mousedown',
+            button: e.button === 0 ? 'left' : e.button === 2 ? 'right' : 'middle'
+          })
+        })
+
+        imgEl.addEventListener('mouseup', (e) => {
+          sendEvent({
+            type: 'mouseup',
+            button: e.button === 0 ? 'left' : e.button === 2 ? 'right' : 'middle'
+          })
+        })
+
+        // Double Click
+        imgEl.addEventListener('dblclick', (e) => {
+          sendEvent({
+            type: 'dblclick',
+            button: 'left' // dblclick usually implies left button
+          })
+        })
+
+        // Prevent context menu on right click
+        imgEl.addEventListener('contextmenu', (e) => e.preventDefault())
+
+        // Keyboard
+        window.addEventListener('keydown', (e) => {
+          // Map JS key codes to RobotJS keys if necessary
+          // For simplicity, passing key name directly (needs normalization for robust use)
+          const key = mapKey(e.key)
+          if (key) {
+             sendEvent({ type: 'keydown', key })
+          }
+        })
+
+        window.addEventListener('keyup', (e) => {
+          const key = mapKey(e.key)
+          if (key) {
+             sendEvent({ type: 'keyup', key })
+          }
+        })
+      }
+
+      function mapKey(key) {
+          // Basic mapping, RobotJS uses specific strings
+          const map = {
+              'ArrowUp': 'up', 'ArrowDown': 'down', 'ArrowLeft': 'left', 'ArrowRight': 'right',
+              'Enter': 'enter', 'Backspace': 'backspace', 'Escape': 'escape', 'Tab': 'tab',
+              'Control': 'control', 'Shift': 'shift', 'Alt': 'alt', 'Meta': 'command'
+          }
+          if (map[key]) return map[key]
+          if (key.length === 1) return key.toLowerCase()
+          return null
+      }
+
+      function sendEvent(event) {
+        if (wsClient && wsClient.readyState === WebSocket.OPEN) {
+          // Scale coordinates if image is resized via CSS
+          if (event.x !== undefined && event.y !== undefined) {
+              const rect = imgEl.getBoundingClientRect()
+              const scaleX = imgEl.naturalWidth / rect.width
+              const scaleY = imgEl.naturalHeight / rect.height
+              event.x = Math.round((event.x - rect.left) * scaleX)
+              event.y = Math.round((event.y - rect.top) * scaleY)
+          }
+          wsClient.send(JSON.stringify(event))
+        }
+      }
+
+      connect()
+    </script>
+  </body>
+</html>

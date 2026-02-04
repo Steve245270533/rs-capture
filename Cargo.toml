@@ -1,0 +1,42 @@
+
+[package]
+authors = ["LongYinan <lynweklm@gmail.com>"]
+edition = "2021"
+name    = "rs_capture_core"
+version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+image = "0.25.5"
+xcap  = "0.0.12"
+
+  [dependencies.napi]
+  features = ["napi4", "async", "compat-mode"]
+  version  = "2.9.0"
+
+  [dependencies.napi-derive]
+  features = ["type-def"]
+  version  = "2.9.0"
+
+  [dependencies.tokio]
+  features = ["full"]
+  version  = "1.49.0"
+
+[target."cfg(target_os = \"macos\")".dependencies]
+block2                   = "0.6.2"
+core-graphics            = "0.24"
+objc2                    = "0.6.3"
+objc2-core-graphics      = "0.3.2"
+objc2-core-media         = "0.3.2"
+objc2-core-video         = "0.3.2"
+objc2-foundation         = "0.3.2"
+objc2-screen-capture-kit = "0.3.2"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+lto   = true
+strip = "symbols"
