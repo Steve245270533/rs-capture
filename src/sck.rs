@@ -362,8 +362,7 @@ impl ScreenCapture {
 
       let delegate = StreamDelegate::new(tsfn);
 
-      let queue =
-        unsafe { dispatch_queue_create(c"com.napi.sck".as_ptr(), ptr::null_mut()) };
+      let queue = unsafe { dispatch_queue_create(c"com.napi.sck".as_ptr(), ptr::null_mut()) };
 
       unsafe {
         let _: bool = msg_send![&stream, addStreamOutput: &*delegate, type: SCStreamOutputType::Screen, sampleHandlerQueue: queue as *mut NSObject, error: ptr::null_mut::<*mut NSError>()];

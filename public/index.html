@@ -107,7 +107,7 @@
           sendEvent({
             type: 'mousemove',
             x: e.clientX, // Note: This needs coordinate mapping if image is scaled
-            y: e.clientY
+            y: e.clientY,
           })
         })
 
@@ -115,14 +115,14 @@
         imgEl.addEventListener('mousedown', (e) => {
           sendEvent({
             type: 'mousedown',
-            button: e.button === 0 ? 'left' : e.button === 2 ? 'right' : 'middle'
+            button: e.button === 0 ? 'left' : e.button === 2 ? 'right' : 'middle',
           })
         })
 
         imgEl.addEventListener('mouseup', (e) => {
           sendEvent({
             type: 'mouseup',
-            button: e.button === 0 ? 'left' : e.button === 2 ? 'right' : 'middle'
+            button: e.button === 0 ? 'left' : e.button === 2 ? 'right' : 'middle',
           })
         })
 
@@ -130,7 +130,7 @@
         imgEl.addEventListener('dblclick', (e) => {
           sendEvent({
             type: 'dblclick',
-            button: 'left' // dblclick usually implies left button
+            button: 'left', // dblclick usually implies left button
           })
         })
 
@@ -143,39 +143,48 @@
           // For simplicity, passing key name directly (needs normalization for robust use)
           const key = mapKey(e.key)
           if (key) {
-             sendEvent({ type: 'keydown', key })
+            sendEvent({ type: 'keydown', key })
           }
         })
 
         window.addEventListener('keyup', (e) => {
           const key = mapKey(e.key)
           if (key) {
-             sendEvent({ type: 'keyup', key })
+            sendEvent({ type: 'keyup', key })
           }
         })
       }
 
       function mapKey(key) {
-          // Basic mapping, RobotJS uses specific strings
-          const map = {
-              'ArrowUp': 'up', 'ArrowDown': 'down', 'ArrowLeft': 'left', 'ArrowRight': 'right',
-              'Enter': 'enter', 'Backspace': 'backspace', 'Escape': 'escape', 'Tab': 'tab',
-              'Control': 'control', 'Shift': 'shift', 'Alt': 'alt', 'Meta': 'command'
-          }
-          if (map[key]) return map[key]
-          if (key.length === 1) return key.toLowerCase()
-          return null
+        // Basic mapping, RobotJS uses specific strings
+        const map = {
+          ArrowUp: 'up',
+          ArrowDown: 'down',
+          ArrowLeft: 'left',
+          ArrowRight: 'right',
+          Enter: 'enter',
+          Backspace: 'backspace',
+          Escape: 'escape',
+          Tab: 'tab',
+          Control: 'control',
+          Shift: 'shift',
+          Alt: 'alt',
+          Meta: 'command',
+        }
+        if (map[key]) return map[key]
+        if (key.length === 1) return key.toLowerCase()
+        return null
       }
 
       function sendEvent(event) {
         if (wsClient && wsClient.readyState === WebSocket.OPEN) {
           // Scale coordinates if image is resized via CSS
           if (event.x !== undefined && event.y !== undefined) {
-              const rect = imgEl.getBoundingClientRect()
-              const scaleX = imgEl.naturalWidth / rect.width
-              const scaleY = imgEl.naturalHeight / rect.height
-              event.x = Math.round((event.x - rect.left) * scaleX)
-              event.y = Math.round((event.y - rect.top) * scaleY)
+            const rect = imgEl.getBoundingClientRect()
+            const scaleX = imgEl.naturalWidth / rect.width
+            const scaleY = imgEl.naturalHeight / rect.height
+            event.x = Math.round((event.x - rect.left) * scaleX)
+            event.y = Math.round((event.y - rect.top) * scaleY)
           }
           wsClient.send(JSON.stringify(event))
         }
