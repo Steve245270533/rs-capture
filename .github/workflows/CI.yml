@@ -177,7 +177,7 @@ jobs:
         run: npm install --ignore-scripts
       - name: create npm dirs
         run: |
-          node scripts/create-npm.js
+          npx napi create-npm-dir -t . -c package.json
           ls -R npm
       - name: Download all artifacts
         uses: actions/download-artifact@v7

@@ -37,13 +37,19 @@
     "browser.js"
   ],
   "napi": {
-    "binaryName": "index",
-    "targets": [
-      "x86_64-pc-windows-msvc",
-      "aarch64-pc-windows-msvc",
-      "x86_64-apple-darwin",
-      "aarch64-apple-darwin"
-    ]
+    "name": "index",
+    "package": {
+      "name": "@vertfrag/rs-capture"
+    },
+    "triples": {
+      "defaults": false,
+      "additional": [
+        "x86_64-pc-windows-msvc",
+        "aarch64-pc-windows-msvc",
+        "x86_64-apple-darwin",
+        "aarch64-apple-darwin"
+      ]
+    }
   },
   "engines": {
     "node": ">= 6.14.2 < 7 || >= 8.11.2 < 9 || >= 9.11.0 < 10 || >= 10.0.0"
