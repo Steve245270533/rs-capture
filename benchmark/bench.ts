@@ -1,5 +1,5 @@
 import { Bench } from 'tinybench'
-import { ScreenCapture } from '../index.js'
+import { ScreenCapture } from '../index.mjs'
 
 const b = new Bench()
 

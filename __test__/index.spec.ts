@@ -1,5 +1,5 @@
 import test from 'ava'
-import { ScreenCapture } from '../index.js'
+import { ScreenCapture } from '../index.mjs'
 
 test('ScreenCapture: init', (t) => {
   const capturer = new ScreenCapture(() => {})
