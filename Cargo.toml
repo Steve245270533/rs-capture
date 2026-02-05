@@ -1,24 +1,25 @@
 
 [package]
-authors = ["LongYinan <lynweklm@gmail.com>"]
 edition = "2021"
-name    = "rs_capture_core"
-version = "0.1.0"
+license = "MIT"
+name    = "rs_capture"
+version = "1.0.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-image = "0.25.5"
-xcap  = "0.0.12"
+image = "0.25.9"
+xcap  = "0.8.1"
 
   [dependencies.napi]
   features = ["napi4", "async", "compat-mode"]
-  version  = "2.9.0"
+  version  = "3.0.0"
 
   [dependencies.napi-derive]
-  features = ["type-def"]
-  version  = "2.9.0"
+  default-features = false
+  features         = ["type-def"]
+  version          = "3.0.0"
 
   [dependencies.tokio]
   features = ["full"]
@@ -34,8 +35,8 @@ objc2-core-video         = "0.3.2"
 objc2-foundation         = "0.3.2"
 objc2-screen-capture-kit = "0.3.2"
 
-[build-dependencies]
-napi-build = "2"
+[build-dependencies.napi-build]
+version = "2.2.2"
 
 [profile.release]
 lto   = true

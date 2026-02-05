@@ -19,53 +19,52 @@
 ```bash
 npm install @vertfrag/rs-capture
 # 或
-yarn add @vertfrag/rs-capture
+pnpm add @vertfrag/rs-capture
 ```
 
 ## 支持平台
 
-| 平台 | 架构 | 后端 |
-|----------|--------------|---------|
-| macOS    | x64, arm64   | ScreenCaptureKit (默认), XCap |
-| Windows  | x64, arm64   | XCap |
-| Linux    | x64          | XCap |
+| 平台    | 架构       | 后端                          |
+| ------- | ---------- | ----------------------------- |
+| macOS   | x64, arm64 | ScreenCaptureKit (默认), XCap |
+| Windows | x64, arm64 | XCap                          |
+| Linux   | x64        | XCap                          |
 
 ## 使用方法
 
 ```javascript
-import { ScreenCapture, CaptureBackend } from '@vertfrag/rs-capture';
+import { ScreenCapture, CaptureBackend } from '@vertfrag/rs-capture'
 
 // 处理捕获帧的回调函数
 const onFrame = (frame) => {
   // frame.rgba 是包含原始 RGBA 像素数据的 Buffer
-  console.log(`Frame received: ${frame.width}x${frame.height}, Stride: ${frame.stride}`);
-  console.log(`Data length: ${frame.rgba.length}`);
-};
+  console.log(`Frame received: ${frame.width}x${frame.height}, Stride: ${frame.stride}`)
+  console.log(`Data length: ${frame.rgba.length}`)
+}
 
 // 配置（可选）
 const config = {
   fps: 60, // 目标帧率（默认：60）
   // 在 macOS 上，你可以显式选择后端。
   // macOS 上默认为 ScreenCaptureKit，其他平台默认为 XCap。
-  backend: CaptureBackend.ScreenCaptureKit 
-};
+  backend: CaptureBackend.ScreenCaptureKit,
+}
 
 try {
   // 初始化捕获器
-  const capturer = new ScreenCapture(onFrame, config);
+  const capturer = new ScreenCapture(onFrame, config)
 
   // 开始捕获
-  console.log('Starting capture...');
-  await capturer.start();
-  
+  console.log('Starting capture...')
+  await capturer.start()
+
   // 持续捕获 5 秒
   setTimeout(() => {
-    capturer.stop();
-    console.log('Capture stopped');
-  }, 5000);
-
+    capturer.stop()
+    console.log('Capture stopped')
+  }, 5000)
 } catch (err) {
-  console.error('Error:', err);
+  console.error('Error:', err)
 }
 ```
 
@@ -94,19 +93,19 @@ try {
 
 传递给回调函数的对象。
 
-| 属性 | 类型 | 描述 |
-|----------|------|-------------|
-| `width`  | `number` | 捕获帧的宽度（像素）。 |
-| `height` | `number` | 捕获帧的高度（像素）。 |
+| 属性     | 类型     | 描述                                 |
+| -------- | -------- | ------------------------------------ |
+| `width`  | `number` | 捕获帧的宽度（像素）。               |
+| `height` | `number` | 捕获帧的高度（像素）。               |
 | `stride` | `number` | 每行的字节数（通常为 `width * 4`）。 |
-| `rgba`   | `Buffer` | RGBA 格式的原始像素数据。 |
+| `rgba`   | `Buffer` | RGBA 格式的原始像素数据。            |
 
 ### `ScreenCaptureConfig`
 
-| 属性 | 类型 | 描述 |
-|----------|------|-------------|
-| `fps`    | `number` | 目标帧率。默认为 `60`。 |
-| `backend`| `CaptureBackend` | 显式选择捕获后端。 |
+| 属性      | 类型             | 描述                    |
+| --------- | ---------------- | ----------------------- |
+| `fps`     | `number`         | 目标帧率。默认为 `60`。 |
+| `backend` | `CaptureBackend` | 显式选择捕获后端。      |
 
 ### `CaptureBackend`
 
@@ -115,7 +114,7 @@ try {
 ```typescript
 export const enum CaptureBackend {
   ScreenCaptureKit = 'ScreenCaptureKit',
-  XCap = 'XCap'
+  XCap = 'XCap',
 }
 ```
 
@@ -128,25 +127,28 @@ export const enum CaptureBackend {
 
 - 安装最新的 [Rust](https://rustup.rs/)
 - 安装 Node.js >= 10
-- 安装 Yarn
+- 安装 pnpm（推荐通过 Corepack）
 
 ### 构建与测试
 
 1. **安装依赖**：
-    ```bash
-    yarn install
-    ```
+
+   ```bash
+   pnpm install
+   ```
 
 2. **构建项目**：
-    ```bash
-    yarn build
-    ```
-    这将编译 Rust 代码并生成原生插件。
+
+   ```bash
+   pnpm build
+   ```
+
+   这将编译 Rust 代码并生成原生插件。
 
 3. **运行测试**：
-    ```bash
-    yarn test
-    ```
+   ```bash
+   pnpm test
+   ```
 
 ## 许可证
 

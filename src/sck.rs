@@ -6,10 +6,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use napi::bindgen_prelude::*;
-use napi::threadsafe_function::{ErrorStrategy, ThreadsafeFunction, ThreadsafeFunctionCallMode};
-use napi::JsFunction;
+use napi::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode};
 use napi_derive::napi;
-use tokio::sync::Mutex as TokioMutex;
 
 #[cfg(target_os = "macos")]
 use block2::RcBlock;
@@ -47,14 +45,24 @@ extern "C" {
   fn CVPixelBufferUnlockBaseAddress(pbuf: *mut c_void, flags: u64) -> i32;
 }
 
-pub struct FrameData {
+pub struct FrameDataInternal {
   pub width: u32,
   pub height: u32,
   pub stride: u32,
   pub data: Vec<u8>,
 }
 
-type FrameTsfnType = ThreadsafeFunction<FrameData, ErrorStrategy::Fatal>;
+#[napi(object)]
+pub struct FrameData {
+  pub width: u32,
+  pub height: u32,
+  pub stride: u32,
+  pub rgba: Buffer,
+}
+
+type FrameTsfn =
+  ThreadsafeFunction<FrameDataInternal, (), sys::napi_value, Status, false, false, 0>;
+type FrameTsfnType = Arc<FrameTsfn>;
 
 #[napi(string_enum)]
 pub enum CaptureBackend {
@@ -128,7 +136,7 @@ define_class!(
                                      }
                                  }
 
-                                 let frame = FrameData { width: width as u32, height: height as u32, stride: (width * 4) as u32, data };
+                                 let frame = FrameDataInternal { width: width as u32, height: height as u32, stride: (width * 4) as u32, data };
                                  tsfn.call(frame, ThreadsafeFunctionCallMode::NonBlocking);
                              }
                              CVPixelBufferUnlockBaseAddress(pixel_buffer, 1);
@@ -199,26 +207,34 @@ enum BackendWrapper {
 
 #[napi]
 pub struct ScreenCapture {
-  backend: Arc<TokioMutex<BackendWrapper>>,
+  backend: Arc<StdMutex<Option<BackendWrapper>>>,
   tsfn: FrameTsfnType,
   fps: u32,
 }
 
 #[napi]
 impl ScreenCapture {
-  #[napi(constructor)]
-  pub fn new(callback: JsFunction, config: Option<ScreenCaptureConfig>) -> Result<Self> {
-    let tsfn = callback.create_threadsafe_function(0, |ctx| {
-      let frame: FrameData = ctx.value;
-      let mut js_obj = ctx.env.create_object()?;
-      js_obj.set("width", frame.width)?;
-      js_obj.set("height", frame.height)?;
-      js_obj.set("stride", frame.stride)?;
+  #[napi(
+    constructor,
+    ts_args_type = "callback: (frame: FrameData) => void, config?: ScreenCaptureConfig | null"
+  )]
+  pub fn new(callback: Function<'_, (), ()>, config: Option<ScreenCaptureConfig>) -> Result<Self> {
+    let tsfn: FrameTsfnType = Arc::new(
+      callback
+        .build_threadsafe_function::<FrameDataInternal>()
+        .build_callback(|ctx| {
+          let frame: FrameDataInternal = ctx.value;
+          let mut js_obj = Object::new(&ctx.env)?;
 
-      let buf = ctx.env.create_buffer_copy(frame.data)?.into_raw();
-      js_obj.set("rgba", buf)?;
-      Ok(vec![js_obj])
-    })?;
+          js_obj.set_named_property("width", frame.width)?;
+          js_obj.set_named_property("height", frame.height)?;
+          js_obj.set_named_property("stride", frame.stride)?;
+
+          let buf = Buffer::from(frame.data);
+          js_obj.set_named_property("rgba", buf)?;
+          Ok(js_obj.raw())
+        })?,
+    );
 
     // Default to XCap unless configured otherwise, or if SCK is requested but not on macOS
     let mut use_sck = false;
@@ -265,7 +281,7 @@ impl ScreenCapture {
     };
 
     Ok(ScreenCapture {
-      backend: Arc::new(TokioMutex::new(wrapper)),
+      backend: Arc::new(StdMutex::new(Some(wrapper))),
       tsfn,
       fps,
     })
@@ -273,18 +289,35 @@ impl ScreenCapture {
 
   #[napi]
   pub async fn start(&self) -> Result<()> {
-    let mut backend_guard = self.backend.lock().await;
-    match *backend_guard {
+    let mut wrapper = {
+      let mut backend_guard = self.backend.lock().unwrap();
+      backend_guard
+        .take()
+        .ok_or_else(|| Error::new(Status::GenericFailure, "Backend is missing".to_string()))?
+    };
+
+    let result = match wrapper {
       #[cfg(target_os = "macos")]
       BackendWrapper::Sck(ref mut sck) => Self::start_sck(sck, self.tsfn.clone(), self.fps).await,
       BackendWrapper::XCap(ref mut xcap) => Self::start_xcap(xcap, self.tsfn.clone(), self.fps),
+    };
+
+    {
+      let mut backend_guard = self.backend.lock().unwrap();
+      *backend_guard = Some(wrapper);
     }
+
+    result
   }
 
   #[napi]
   pub fn stop(&self) -> Result<()> {
-    let mut backend_guard = self.backend.blocking_lock();
-    match *backend_guard {
+    let mut backend_guard = self.backend.lock().unwrap();
+    let Some(wrapper) = backend_guard.as_mut() else {
+      return Ok(());
+    };
+
+    match wrapper {
       #[cfg(target_os = "macos")]
       BackendWrapper::Sck(ref mut sck) => Self::stop_sck(sck),
       BackendWrapper::XCap(ref mut xcap) => Self::stop_xcap(xcap),
@@ -435,7 +468,7 @@ impl ScreenCapture {
             let data = img.into_raw();
             let stride = width * 4;
 
-            let frame = FrameData {
+            let frame = FrameDataInternal {
               width,
               height,
               stride,

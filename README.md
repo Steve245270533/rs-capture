@@ -19,53 +19,52 @@ Cross-platform screen capture library for Node.js powered by Rust.
 ```bash
 npm install @vertfrag/rs-capture
 # or
-yarn add @vertfrag/rs-capture
+pnpm add @vertfrag/rs-capture
 ```
 
 ## Supported Platforms
 
-| Platform | Architecture | Backend |
-|----------|--------------|---------|
+| Platform | Architecture | Backend                          |
+| -------- | ------------ | -------------------------------- |
 | macOS    | x64, arm64   | ScreenCaptureKit (Default), XCap |
-| Windows  | x64, arm64   | XCap |
-| Linux    | x64          | XCap |
+| Windows  | x64, arm64   | XCap                             |
+| Linux    | x64          | XCap                             |
 
 ## Usage
 
 ```javascript
-import { ScreenCapture, CaptureBackend } from '@vertfrag/rs-capture';
+import { ScreenCapture, CaptureBackend } from '@vertfrag/rs-capture'
 
 // Callback function to handle captured frames
 const onFrame = (frame) => {
   // frame.rgba is a Buffer containing raw RGBA pixel data
-  console.log(`Frame received: ${frame.width}x${frame.height}, Stride: ${frame.stride}`);
-  console.log(`Data length: ${frame.rgba.length}`);
-};
+  console.log(`Frame received: ${frame.width}x${frame.height}, Stride: ${frame.stride}`)
+  console.log(`Data length: ${frame.rgba.length}`)
+}
 
 // Configuration (Optional)
 const config = {
   fps: 60, // Target FPS (Default: 60)
   // On macOS, you can explicitly choose the backend.
   // Defaults to ScreenCaptureKit on macOS, and XCap on others.
-  backend: CaptureBackend.ScreenCaptureKit 
-};
+  backend: CaptureBackend.ScreenCaptureKit,
+}
 
 try {
   // Initialize the capturer
-  const capturer = new ScreenCapture(onFrame, config);
+  const capturer = new ScreenCapture(onFrame, config)
 
   // Start capturing
-  console.log('Starting capture...');
-  await capturer.start();
-  
+  console.log('Starting capture...')
+  await capturer.start()
+
   // Keep capturing for 5 seconds
   setTimeout(() => {
-    capturer.stop();
-    console.log('Capture stopped');
-  }, 5000);
-
+    capturer.stop()
+    console.log('Capture stopped')
+  }, 5000)
 } catch (err) {
-  console.error('Error:', err);
+  console.error('Error:', err)
 }
 ```
 
@@ -94,19 +93,19 @@ Stops the screen capture session immediately.
 
 The object passed to the callback function.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `width`  | `number` | Width of the captured frame in pixels. |
-| `height` | `number` | Height of the captured frame in pixels. |
+| Property | Type     | Description                                    |
+| -------- | -------- | ---------------------------------------------- |
+| `width`  | `number` | Width of the captured frame in pixels.         |
+| `height` | `number` | Height of the captured frame in pixels.        |
 | `stride` | `number` | Number of bytes per row (usually `width * 4`). |
-| `rgba`   | `Buffer` | Raw pixel data in RGBA format. |
+| `rgba`   | `Buffer` | Raw pixel data in RGBA format.                 |
 
 ### `ScreenCaptureConfig`
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `fps`    | `number` | Target frames per second. Default is `60`. |
-| `backend`| `CaptureBackend` | Explicitly choose the capture backend. |
+| Property  | Type             | Description                                |
+| --------- | ---------------- | ------------------------------------------ |
+| `fps`     | `number`         | Target frames per second. Default is `60`. |
+| `backend` | `CaptureBackend` | Explicitly choose the capture backend.     |
 
 ### `CaptureBackend`
 
@@ -115,7 +114,7 @@ Enum for selecting the capture backend.
 ```typescript
 export const enum CaptureBackend {
   ScreenCaptureKit = 'ScreenCaptureKit',
-  XCap = 'XCap'
+  XCap = 'XCap',
 }
 ```
 
@@ -128,25 +127,28 @@ export const enum CaptureBackend {
 
 - Install the latest [Rust](https://rustup.rs/)
 - Install Node.js >= 10
-- Install Yarn
+- Install pnpm (recommended via Corepack)
 
 ### Build & Test
 
 1. **Install dependencies**:
-    ```bash
-    yarn install
-    ```
+
+   ```bash
+   pnpm install
+   ```
 
 2. **Build the project**:
-    ```bash
-    yarn build
-    ```
-    This will compile the Rust code and generate the native addon.
+
+   ```bash
+   pnpm build
+   ```
+
+   This will compile the Rust code and generate the native addon.
 
 3. **Run tests**:
-    ```bash
-    yarn test
-    ```
+   ```bash
+   pnpm test
+   ```
 
 ## License
 

@@ -1,14 +1,13 @@
 name: CI
 env:
   DEBUG: napi:*
-  APP_NAME: 'index'
+  APP_NAME: rs-capture
   MACOSX_DEPLOYMENT_TARGET: '10.13'
   CARGO_INCREMENTAL: '1'
 'on':
   push:
     branches:
       - main
-      - master
     tags-ignore:
       - '**'
     paths-ignore:
@@ -17,7 +16,7 @@ env:
       - '**/*.gitignore'
       - .editorconfig
       - docs/**
-  pull_request:
+  pull_request: null
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -31,15 +30,20 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.23.0 --activate
       - name: Install
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: pnpm install --frozen-lockfile
       - name: Oxlint
-        run: npm run lint
+        run: pnpm lint
       - name: Cargo fmt
         run: cargo fmt -- --check
       - name: Clippy
@@ -51,16 +55,19 @@ jobs:
         settings:
           - host: macos-latest
             target: x86_64-apple-darwin
-            build: npm run build -- --target x86_64-apple-darwin
+            build: pnpm build --target x86_64-apple-darwin
           - host: windows-latest
-            build: npm run build -- --target x86_64-pc-windows-msvc
+            build: pnpm build --target x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
           - host: windows-latest
-            build: npm run build -- --target aarch64-pc-windows-msvc
-            target: aarch64-pc-windows-msvc
+            build: pnpm build --target i686-pc-windows-msvc
+            target: i686-pc-windows-msvc
           - host: macos-latest
             target: aarch64-apple-darwin
-            build: npm run build -- --target aarch64-apple-darwin
+            build: pnpm build --target aarch64-apple-darwin
+          - host: windows-latest
+            target: aarch64-pc-windows-msvc
+            build: pnpm build --target aarch64-pc-windows-msvc
     name: stable - ${{ matrix.settings.target }} - node@24
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -69,7 +76,12 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.23.0 --activate
       - name: Install
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -102,7 +114,7 @@ jobs:
         if: ${{ matrix.settings.setup }}
         shell: bash
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: pnpm install --frozen-lockfile
       - name: Build
         run: ${{ matrix.settings.build }}
         shell: bash
@@ -125,6 +137,9 @@ jobs:
           - host: windows-latest
             target: x86_64-pc-windows-msvc
             architecture: x64
+          - host: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            architecture: arm64
           - host: macos-latest
             target: aarch64-apple-darwin
             architecture: arm64
@@ -141,10 +156,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
           architecture: ${{ matrix.settings.architecture }}
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.23.0 --activate
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: pnpm install --frozen-lockfile
       - name: Download artifacts
         uses: actions/download-artifact@v7
         with:
@@ -154,7 +174,7 @@ jobs:
         run: ls -R .
         shell: bash
       - name: Test bindings
-        run: npm test
+        run: pnpm test
   publish:
     name: Publish
     runs-on: ubuntu-latest
@@ -166,32 +186,32 @@ jobs:
       - test-macOS-windows-binding
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - name: Setup node
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-      - name: Install dependencies
-        run: npm install --ignore-scripts
-      - name: create npm dirs
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Setup pnpm
         run: |
-          npx napi create-npm-dir -t . -c package.json
-          ls -R npm
+          corepack enable
+          corepack prepare pnpm@10.23.0 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: create npm dirs
+        run: pnpm napi create-npm-dirs
       - name: Download all artifacts
         uses: actions/download-artifact@v7
         with:
           path: artifacts
       - name: Move artifacts
-        run: npm run artifacts -- --dist npm
+        run: pnpm artifacts
       - name: List packages
         run: ls -R ./npm
         shell: bash
       - name: Publish
         run: |
           npm config set provenance true
-          echo "Commit message: $(git log -1 --pretty=%B)"
           if git log -1 --pretty=%B | grep "^[0-9]\+\.[0-9]\+\.[0-9]\+$";
           then
             echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
