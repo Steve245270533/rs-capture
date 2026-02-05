@@ -27,16 +27,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
       - name: Setup node
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.23.0
       - name: Install
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -73,16 +73,16 @@ jobs:
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
       - name: Setup node
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.23.0
       - name: Install
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -153,6 +153,10 @@ jobs:
     runs-on: ${{ matrix.settings.host }}
     steps:
       - uses: actions/checkout@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
       - name: Setup node
         uses: actions/setup-node@v6
         with:
@@ -160,10 +164,6 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
           architecture: ${{ matrix.settings.architecture }}
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.23.0
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Download artifacts
@@ -187,16 +187,16 @@ jobs:
       - test-macOS-windows-binding
     steps:
       - uses: actions/checkout@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
       - name: Setup node
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.23.0
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: create npm dirs
