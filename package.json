@@ -126,9 +126,9 @@
   },
   "packageManager": "pnpm@10.23.0",
   "optionalDependencies": {
-    "@vertfrag/rs-capture-darwin-arm64": "1.0.2",
-    "@vertfrag/rs-capture-darwin-x64": "1.0.2",
-    "@vertfrag/rs-capture-win32-arm64-msvc": "1.0.2",
-    "@vertfrag/rs-capture-win32-x64-msvc": "1.0.2"
+    "@vertfrag/rs-capture-darwin-arm64": "1.0.1",
+    "@vertfrag/rs-capture-darwin-x64": "1.0.1",
+    "@vertfrag/rs-capture-win32-arm64-msvc": "1.0.1",
+    "@vertfrag/rs-capture-win32-x64-msvc": "1.0.1"
   }
 }

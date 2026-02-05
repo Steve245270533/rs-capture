@@ -73,6 +73,19 @@ importers:
       ws:
         specifier: ^8.19.0
         version: 8.19.0
+    optionalDependencies:
+      '@vertfrag/rs-capture-darwin-arm64':
+        specifier: 1.0.1
+        version: 1.0.1
+      '@vertfrag/rs-capture-darwin-x64':
+        specifier: 1.0.1
+        version: 1.0.1
+      '@vertfrag/rs-capture-win32-arm64-msvc':
+        specifier: 1.0.1
+        version: 1.0.1
+      '@vertfrag/rs-capture-win32-x64-msvc':
+        specifier: 1.0.1
+        version: 1.0.1
 
 packages:
   '@emnapi/core@1.8.1':
@@ -1230,6 +1243,46 @@ packages:
       { integrity: sha512-6lLqMNX3TuycBPABycx7A9F1bHQR7kiQln6abjFbPrf5C/05qHM9M5E4PeTE59c7z8g6vHnx1Ioihb2AQl7BTA== }
     engines: { node: '>=18' }
     hasBin: true
+
+  '@vertfrag/rs-capture-darwin-arm64@1.0.1':
+    resolution:
+      {
+        integrity: sha512-Qzu5SzE5rgHZ5SlogBcgCxSnfcWagVQecU4euceGWZcpxEYDbTirC5pXod1/JHL1DeUawRjwcfLiEMCa2RoSIA==,
+        tarball: https://registry.npmjs.org/@vertfrag/rs-capture-darwin-arm64/-/rs-capture-darwin-arm64-1.0.1.tgz,
+      }
+    engines: { node: '>= 6.14.2 < 7 || >= 8.11.2 < 9 || >= 9.11.0 < 10 || >= 10.0.0' }
+    cpu: [arm64]
+    os: [darwin]
+
+  '@vertfrag/rs-capture-darwin-x64@1.0.1':
+    resolution:
+      {
+        integrity: sha512-csChNp7weoqQrpvDZuU9qUX/lUrB7YGR3fnJc2PdFzfuqU6Y71hgKdzr8xBI/4snsm9kpqZvJ/MFgS5Pz5EAuQ==,
+        tarball: https://registry.npmjs.org/@vertfrag/rs-capture-darwin-x64/-/rs-capture-darwin-x64-1.0.1.tgz,
+      }
+    engines: { node: '>= 6.14.2 < 7 || >= 8.11.2 < 9 || >= 9.11.0 < 10 || >= 10.0.0' }
+    cpu: [x64]
+    os: [darwin]
+
+  '@vertfrag/rs-capture-win32-arm64-msvc@1.0.1':
+    resolution:
+      {
+        integrity: sha512-A2Ihe66Dd9BQwcato2+BSFosIqB1T/3lphHlc4m18Hv9JQvF/gBu/9SIBR2Oux6U5kFpU29/B6+Ihm7oTiMNrA==,
+        tarball: https://registry.npmjs.org/@vertfrag/rs-capture-win32-arm64-msvc/-/rs-capture-win32-arm64-msvc-1.0.1.tgz,
+      }
+    engines: { node: '>= 6.14.2 < 7 || >= 8.11.2 < 9 || >= 9.11.0 < 10 || >= 10.0.0' }
+    cpu: [arm64]
+    os: [win32]
+
+  '@vertfrag/rs-capture-win32-x64-msvc@1.0.1':
+    resolution:
+      {
+        integrity: sha512-zWOGBX8q4EKKcOYDwGRN7X/QAMbVDWqU240pHVwCH2G3l4ZUmDONc/TKhvq8JU9u7ZSsq6LgyooEYbnsnv7SIA==,
+        tarball: https://registry.npmjs.org/@vertfrag/rs-capture-win32-x64-msvc/-/rs-capture-win32-x64-msvc-1.0.1.tgz,
+      }
+    engines: { node: '>= 6.14.2 < 7 || >= 8.11.2 < 9 || >= 9.11.0 < 10 || >= 10.0.0' }
+    cpu: [x64]
+    os: [win32]
 
   abbrev@3.0.1:
     resolution:
@@ -3657,6 +3710,18 @@ snapshots:
       - encoding
       - rollup
       - supports-color
+
+  '@vertfrag/rs-capture-darwin-arm64@1.0.1':
+    optional: true
+
+  '@vertfrag/rs-capture-darwin-x64@1.0.1':
+    optional: true
+
+  '@vertfrag/rs-capture-win32-arm64-msvc@1.0.1':
+    optional: true
+
+  '@vertfrag/rs-capture-win32-x64-msvc@1.0.1':
+    optional: true
 
   abbrev@3.0.1: {}
 
