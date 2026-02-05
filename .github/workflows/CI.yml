@@ -33,9 +33,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Setup pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.23.0 --activate
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
       - name: Install
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -79,9 +79,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Setup pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.23.0 --activate
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
       - name: Install
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -160,9 +160,9 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
           architecture: ${{ matrix.settings.architecture }}
       - name: Setup pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.23.0 --activate
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Download artifacts
@@ -193,9 +193,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Setup pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.23.0 --activate
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.23.0
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: create npm dirs
