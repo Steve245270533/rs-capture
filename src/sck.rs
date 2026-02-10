@@ -73,23 +73,31 @@ impl ScreenCapture {
     }
 
     let backend: Box<dyn CaptureBackendImpl> = match backend_enum {
-        Some(CaptureBackend::ScreenCaptureKit) => {
-            #[cfg(target_os = "macos")]
-            { Box::new(SCKBackend::new()) }
-            #[cfg(not(target_os = "macos"))]
-            { Box::new(XCapBackend::new()) }
-        },
-        Some(CaptureBackend::XCap) => {
-            Box::new(XCapBackend::new())
-        },
-        None => {
-            #[cfg(target_os = "macos")]
-            { Box::new(SCKBackend::new()) }
-            #[cfg(target_os = "windows")]
-            { Box::new(WindowsBackend::new()) }
-            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-            { Box::new(XCapBackend::new()) }
+      Some(CaptureBackend::ScreenCaptureKit) => {
+        #[cfg(target_os = "macos")]
+        {
+          Box::new(SCKBackend::new())
         }
+        #[cfg(not(target_os = "macos"))]
+        {
+          Box::new(XCapBackend::new())
+        }
+      }
+      Some(CaptureBackend::XCap) => Box::new(XCapBackend::new()),
+      None => {
+        #[cfg(target_os = "macos")]
+        {
+          Box::new(SCKBackend::new())
+        }
+        #[cfg(target_os = "windows")]
+        {
+          Box::new(WindowsBackend::new())
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        {
+          Box::new(XCapBackend::new())
+        }
+      }
     };
 
     Ok(ScreenCapture {
