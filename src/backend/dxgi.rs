@@ -1,6 +1,5 @@
 use std::future::Future;
 use std::pin::Pin;
-use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -9,16 +8,16 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, Result};
 use napi::threadsafe_function::ThreadsafeFunctionCallMode;
 use napi::Status;
-use windows::core::{ComInterface, Interface};
+use windows::core::Interface;
 use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_UNKNOWN, D3D_FEATURE_LEVEL_11_0};
 use windows::Win32::Graphics::Direct3D11::{
-  D3D11CreateDevice, D3D11_bind_FLAG, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D,
+  D3D11CreateDevice, D3D11_BIND_FLAG, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D,
   D3D11_CPU_ACCESS_READ, D3D11_CREATE_DEVICE_FLAG, D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC,
   D3D11_USAGE_STAGING,
 };
 use windows::Win32::Graphics::Dxgi::{
-  CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput1, IDXGIOutputDuplication,
-  IDXGIResource, IDXGISurface, DXGI_ERROR_WAIT_TIMEOUT, DXGI_MAP_READ, DXGI_OUTDUPL_FRAME_INFO,
+  CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput1,
+  IDXGIResource, DXGI_ERROR_WAIT_TIMEOUT, DXGI_MAP_READ, DXGI_OUTDUPL_FRAME_INFO,
 };
 
 use super::{CaptureBackendImpl, FrameDataInternal, FrameTsfnType};
@@ -81,33 +80,17 @@ impl DxgiBackend {
 }
 
 unsafe fn get_adapter(factory: &IDXGIFactory1) -> Result<IDXGIAdapter1> {
-  let mut i = 0;
-  loop {
-    match factory.EnumAdapters1(i) {
-      Ok(adapter) => {
-        // We could filter for discrete GPU etc, but taking first one (usually 0) is standard
-        return Ok(adapter);
-      }
-      Err(_) => break,
-    }
-    i += 1;
-  }
-  Err(anyhow!("No DXGI adapter found"))
+  factory
+    .EnumAdapters1(0)
+    .map_err(|_| anyhow!("No DXGI adapter found"))
 }
 
 unsafe fn get_output(adapter: &IDXGIAdapter1) -> Result<IDXGIOutput1> {
-  let mut i = 0;
-  loop {
-    match adapter.EnumOutputs(i) {
-      Ok(output) => {
-        let output1: IDXGIOutput1 = output.cast()?;
-        return Ok(output1);
-      }
-      Err(_) => break,
-    }
-    i += 1;
-  }
-  Err(anyhow!("No DXGI output found"))
+  let output = adapter
+    .EnumOutputs(0)
+    .map_err(|_| anyhow!("No DXGI output found"))?;
+  let output1: IDXGIOutput1 = output.cast()?;
+  Ok(output1)
 }
 
 impl CaptureBackendImpl for DxgiBackend {
@@ -200,7 +183,7 @@ unsafe fn run_capture_loop(running: Arc<AtomicBool>, tsfn: FrameTsfnType, fps: u
             current_desc.Width != desc.Width || current_desc.Height != desc.Height
           } {
             desc.Usage = D3D11_USAGE_STAGING;
-            desc.BindFlags = D3D11_bind_FLAG(0); // 0 for staging
+            desc.BindFlags = D3D11_BIND_FLAG(0); // 0 for staging
             desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
             desc.MiscFlags = windows::Win32::Graphics::Direct3D11::D3D11_RESOURCE_MISC_FLAG(0);
 
