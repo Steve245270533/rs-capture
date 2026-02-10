@@ -45,7 +45,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwayland-dev libpipewire-0.3-dev libspa-0.2-dev libegl1-mesa-dev libgl1-mesa-dev pkg-config
         shell: bash
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter @vertfrag/rs-capture...
       - name: Oxlint
         run: pnpm lint
       - name: Cargo fmt
@@ -118,7 +118,7 @@ jobs:
         if: ${{ matrix.settings.setup }}
         shell: bash
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter @vertfrag/rs-capture...
       - name: Build
         run: ${{ matrix.settings.build }}
         shell: bash
@@ -168,7 +168,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
           architecture: ${{ matrix.settings.architecture }}
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter @vertfrag/rs-capture...
       - name: Download artifacts
         uses: actions/download-artifact@v7
         with:
@@ -201,7 +201,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter @vertfrag/rs-capture...
       - name: create npm dirs
         run: pnpm napi create-npm-dirs
       - name: Download all artifacts
