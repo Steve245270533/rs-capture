@@ -5,6 +5,8 @@ use napi_derive::napi;
 
 #[cfg(target_os = "macos")]
 use crate::backend::macos::SCKBackend;
+#[cfg(target_os = "windows")]
+use crate::backend::windows::WindowsBackend;
 use crate::backend::xcap::XCapBackend;
 use crate::backend::{CaptureBackendImpl, FrameDataInternal, FrameTsfnType};
 
@@ -17,6 +19,7 @@ pub struct FrameData {
 }
 
 #[napi(string_enum)]
+#[derive(Clone, Copy)]
 pub enum CaptureBackend {
   ScreenCaptureKit,
   XCap,
@@ -59,39 +62,34 @@ impl ScreenCapture {
         })?,
     );
 
-    // Default to XCap unless configured otherwise, or if SCK is requested but not on macOS
-    let mut use_sck = false;
+    let mut backend_enum = None;
     let mut fps = 60;
 
     if let Some(cfg) = &config {
-      if let Some(CaptureBackend::ScreenCaptureKit) = &cfg.backend {
-        use_sck = true;
-      }
+      backend_enum = cfg.backend;
       if let Some(f) = cfg.fps {
         fps = f;
       }
     }
 
-    // Force XCap if not on MacOS even if requested SCK
-    #[cfg(not(target_os = "macos"))]
-    {
-      if use_sck {
-        use_sck = false;
-      }
-    }
-
-    let backend: Box<dyn CaptureBackendImpl> = if use_sck {
-      #[cfg(target_os = "macos")]
-      {
-        Box::new(SCKBackend::new())
-      }
-      #[cfg(not(target_os = "macos"))]
-      {
-        // This branch is unreachable due to logic above
-        Box::new(XCapBackend::new())
-      }
-    } else {
-      Box::new(XCapBackend::new())
+    let backend: Box<dyn CaptureBackendImpl> = match backend_enum {
+        Some(CaptureBackend::ScreenCaptureKit) => {
+            #[cfg(target_os = "macos")]
+            { Box::new(SCKBackend::new()) }
+            #[cfg(not(target_os = "macos"))]
+            { Box::new(XCapBackend::new()) }
+        },
+        Some(CaptureBackend::XCap) => {
+            Box::new(XCapBackend::new())
+        },
+        None => {
+            #[cfg(target_os = "macos")]
+            { Box::new(SCKBackend::new()) }
+            #[cfg(target_os = "windows")]
+            { Box::new(WindowsBackend::new()) }
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            { Box::new(XCapBackend::new()) }
+        }
     };
 
     Ok(ScreenCapture {
