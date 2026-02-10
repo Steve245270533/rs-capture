@@ -1,5 +1,3 @@
-#![cfg(target_os = "windows")]
-
 use napi::Result;
 use std::future::Future;
 use std::pin::Pin;
@@ -32,6 +30,12 @@ impl WindowsBackend {
         }
       }
     }
+  }
+}
+
+impl Default for WindowsBackend {
+  fn default() -> Self {
+    Self::new()
   }
 }
 

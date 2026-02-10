@@ -1,5 +1,3 @@
-#![cfg(target_os = "macos")]
-
 use std::ffi::c_void;
 use std::future::Future;
 use std::pin::Pin;
@@ -140,6 +138,12 @@ impl SCKBackend {
       stream: None,
       delegate: None,
     }
+  }
+}
+
+impl Default for SCKBackend {
+  fn default() -> Self {
+    Self::new()
   }
 }
 

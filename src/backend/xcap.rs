@@ -25,6 +25,12 @@ impl XCapBackend {
   }
 }
 
+impl Default for XCapBackend {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl CaptureBackendImpl for XCapBackend {
   fn start<'a>(
     &'a mut self,

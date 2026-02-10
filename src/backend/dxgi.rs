@@ -1,5 +1,3 @@
-#![cfg(target_os = "windows")]
-
 use std::future::Future;
 use std::pin::Pin;
 use std::ptr;
