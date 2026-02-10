@@ -2,13 +2,15 @@ const express = require('express')
 const http = require('http')
 const { Server } = require('socket.io')
 const { RTCPeerConnection, RTCVideoSource, nonstandard } = require('@roamhq/wrtc')
-const { ScreenCapture } = require('./index.js')
+const { ScreenCapture } = require('@vertfrag/rs-capture')
 
 const app = express()
 const server = http.createServer(app)
 const io = new Server(server)
 
-app.use(express.static('public'))
+const path = require('path')
+
+app.use(express.static(path.join(__dirname, 'public')))
 
 let capture = null
 let videoSource = null

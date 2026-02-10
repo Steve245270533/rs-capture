@@ -1,4 +1,4 @@
-const { ScreenCapture } = require('./index')
+const { ScreenCapture } = require('@vertfrag/rs-capture')
 const fs = require('fs')
 const path = require('path')
 const sharp = require('sharp')
