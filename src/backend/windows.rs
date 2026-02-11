@@ -15,16 +15,15 @@ unsafe impl Sync for WindowsBackend {}
 
 impl WindowsBackend {
   pub fn new() -> Self {
-    // Try DXGI first
     match DxgiBackend::new() {
-      Ok(dxgi) => {
-        // println!("Using DXGI Backend");
-        Self {
-          inner: Box::new(dxgi),
-        }
-      }
+      Ok(dxgi) => Self {
+        inner: Box::new(dxgi),
+      },
       Err(e) => {
-        eprintln!("DXGI Init failed: {:?}. Falling back to XCap/GDI.", e);
+        eprintln!(
+          "Windows capture init failed: {:?}. Falling back to XCap.",
+          e
+        );
         Self {
           inner: Box::new(XCapBackend::new()),
         }

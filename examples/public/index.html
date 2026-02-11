@@ -36,12 +36,16 @@
   </head>
   <body>
     <div id="fps">FPS: 0</div>
-    <img id="stream" alt="Screen Stream" />
+    <canvas id="stream"></canvas>
 
     <script>
       const fpsEl = document.getElementById('fps')
-      const imgEl = document.getElementById('stream')
+      const canvasEl = document.getElementById('stream')
       let wsClient = null
+      let worker = null
+      let mainCtx = null
+      let mainDecoding = false
+      let mainPending = null
 
       // FPS Calculation
       let frameCount = 0
@@ -68,24 +72,24 @@
         const ws = new WebSocket(`${protocol}//${window.location.host}`)
         wsClient = ws
 
-        ws.binaryType = 'blob'
+        ws.binaryType = 'arraybuffer'
 
         ws.onopen = () => {
           console.log('Connected - Receiving Stream')
+          setupWorker()
           setupInputListeners()
         }
 
         ws.onmessage = (event) => {
-          frameCount++ // Increment FPS counter
-          const blob = event.data
-          const url = URL.createObjectURL(blob)
-
-          // Revoke previous URL to prevent memory leak
-          if (imgEl.src && imgEl.src.startsWith('blob:')) {
-            URL.revokeObjectURL(imgEl.src)
+          if (worker && event.data instanceof ArrayBuffer) {
+            worker.postMessage({ type: 'frame', data: event.data }, [event.data])
+          } else if (event.data instanceof ArrayBuffer) {
+            mainPending = event.data
+            if (!mainDecoding) {
+              mainDecoding = true
+              decodeInMain()
+            }
           }
-
-          imgEl.src = url
         }
 
         ws.onclose = () => {
@@ -100,10 +104,10 @@
       }
 
       function setupInputListeners() {
-        if (!imgEl) return
+        if (!canvasEl) return
 
         // Mouse Move
-        imgEl.addEventListener('mousemove', (e) => {
+        canvasEl.addEventListener('mousemove', (e) => {
           sendEvent({
             type: 'mousemove',
             x: e.clientX, // Note: This needs coordinate mapping if image is scaled
@@ -112,14 +116,14 @@
         })
 
         // Mouse Click
-        imgEl.addEventListener('mousedown', (e) => {
+        canvasEl.addEventListener('mousedown', (e) => {
           sendEvent({
             type: 'mousedown',
             button: e.button === 0 ? 'left' : e.button === 2 ? 'right' : 'middle',
           })
         })
 
-        imgEl.addEventListener('mouseup', (e) => {
+        canvasEl.addEventListener('mouseup', (e) => {
           sendEvent({
             type: 'mouseup',
             button: e.button === 0 ? 'left' : e.button === 2 ? 'right' : 'middle',
@@ -127,7 +131,7 @@
         })
 
         // Double Click
-        imgEl.addEventListener('dblclick', (e) => {
+        canvasEl.addEventListener('dblclick', (e) => {
           sendEvent({
             type: 'dblclick',
             button: 'left', // dblclick usually implies left button
@@ -135,7 +139,7 @@
         })
 
         // Prevent context menu on right click
-        imgEl.addEventListener('contextmenu', (e) => e.preventDefault())
+        canvasEl.addEventListener('contextmenu', (e) => e.preventDefault())
 
         // Keyboard
         window.addEventListener('keydown', (e) => {
@@ -180,9 +184,9 @@
         if (wsClient && wsClient.readyState === WebSocket.OPEN) {
           // Scale coordinates if image is resized via CSS
           if (event.x !== undefined && event.y !== undefined) {
-            const rect = imgEl.getBoundingClientRect()
-            const scaleX = imgEl.naturalWidth / rect.width
-            const scaleY = imgEl.naturalHeight / rect.height
+            const rect = canvasEl.getBoundingClientRect()
+            const scaleX = canvasEl.width / rect.width
+            const scaleY = canvasEl.height / rect.height
             event.x = Math.round((event.x - rect.left) * scaleX)
             event.y = Math.round((event.y - rect.top) * scaleY)
           }
@@ -190,7 +194,53 @@
         }
       }
 
+      function setupWorker() {
+        if (worker) return
+        if (!('OffscreenCanvas' in window)) {
+          mainCtx = canvasEl.getContext('2d', { alpha: false, desynchronized: true })
+          return
+        }
+
+        const offscreen = canvasEl.transferControlToOffscreen()
+        worker = new Worker('decoder-worker.js')
+        worker.postMessage({ type: 'init', canvas: offscreen }, [offscreen])
+        worker.onmessage = (e) => {
+          const msg = e.data
+          if (msg?.type === 'frame') {
+            frameCount++
+          }
+        }
+      }
+
       connect()
+
+      async function decodeInMain() {
+        try {
+          while (mainPending) {
+            const buf = mainPending
+            mainPending = null
+
+            const blob = new Blob([buf], { type: 'image/jpeg' })
+            const bitmap = await createImageBitmap(blob)
+
+            if (canvasEl.width !== bitmap.width || canvasEl.height !== bitmap.height) {
+              canvasEl.width = bitmap.width
+              canvasEl.height = bitmap.height
+            }
+
+            if (mainCtx) {
+              mainCtx.drawImage(bitmap, 0, 0)
+              frameCount++
+            }
+
+            bitmap.close()
+          }
+        } catch (e) {
+          console.error('Decode error:', e)
+        } finally {
+          mainDecoding = false
+        }
+      }
     </script>
   </body>
 </html>

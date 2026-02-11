@@ -3,12 +3,20 @@ const WebSocket = require('ws')
 const http = require('http')
 const path = require('path')
 const sharp = require('sharp')
+const os = require('os')
 const { mouse, keyboard, Button, Key, Point } = require('@nut-tree/nut-js')
 const { ScreenCapture } = require('@vertfrag/rs-capture')
 
 const app = express()
 const server = http.createServer(app)
-const wss = new WebSocket.Server({ server })
+const wss = new WebSocket.Server({ server, perMessageDeflate: false })
+
+const JPEG_QUALITY = Number.parseInt(process.env.CAP_JPEG_QUALITY ?? '60', 10)
+const MAX_WIDTH = Number.parseInt(process.env.CAP_MAX_WIDTH ?? (process.platform === 'win32' ? '1280' : '0'), 10)
+const CAP_FPS = Number.parseInt(process.env.CAP_FPS ?? '60', 10)
+
+sharp.cache(false)
+sharp.concurrency(Math.max(1, Math.min(os.cpus().length, 4)))
 
 // Configure nut-js
 mouse.config.autoDelayMs = 0
@@ -19,51 +27,12 @@ app.use(express.static(path.join(__dirname, 'public')))
 
 wss.on('connection', (ws) => {
   console.log('Client connected')
-
-  let capture = null
-  let isProcessing = false
+  if (ws._socket) {
+    ws._socket.setNoDelay(true)
+  }
 
   try {
-    capture = new ScreenCapture(
-      async (frame) => {
-        // Drop frame if previous one is still processing to avoid backpressure
-        if (isProcessing) return
-        if (ws.readyState !== WebSocket.OPEN) return
-
-        isProcessing = true
-        try {
-          // Compress RGBA to JPEG
-          const jpegBuffer = await sharp(frame.rgba, {
-            raw: {
-              width: frame.width,
-              height: frame.height,
-              channels: 4,
-            },
-          })
-            .jpeg({ quality: 50, mozjpeg: true }) // Optimize for speed/size
-            .toBuffer()
-
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(jpegBuffer)
-          }
-        } catch (err) {
-          console.error('Frame processing error:', err)
-        } finally {
-          isProcessing = false
-        }
-      },
-      { fps: 60, backend: 'ScreenCaptureKit' },
-    )
-
-    capture
-      .start()
-      .then(() => {
-        console.log('Screen capture started')
-      })
-      .catch((err) => {
-        console.error('Failed to start capture:', err)
-        ws.close()
-      })
+    attachClient(ws)
   } catch (err) {
     console.error('Failed to initialize capture:', err)
     ws.close()
@@ -80,18 +49,12 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     console.log('Client disconnected')
-    if (capture) {
-      capture.stop()
-      capture = null
-    }
+    detachClient(ws)
   })
 
   ws.on('error', (err) => {
     console.error('WebSocket error:', err)
-    if (capture) {
-      capture.stop()
-      capture = null
-    }
+    detachClient(ws)
   })
 })
 
@@ -221,3 +184,116 @@ async function handleInputEvent(event) {
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`)
 })
+
+let capture = null
+let isProcessing = false
+const clients = new Set()
+let encodedFrames = 0
+let broadcastFrames = 0
+let lastStatsAt = Date.now()
+
+// setInterval(() => {
+//   const now = Date.now()
+//   const dt = (now - lastStatsAt) / 1000
+//   lastStatsAt = now
+//   const encFps = Math.round(encodedFrames / dt)
+//   const outFps = Math.round(broadcastFrames / dt)
+//   encodedFrames = 0
+//   broadcastFrames = 0
+//   console.log(`stats: clients=${clients.size} enc_fps=${encFps} out_fps=${outFps}`)
+// }, 1000).unref()
+
+function attachClient(ws) {
+  clients.add(ws)
+  if (!capture) {
+    startSharedCapture()
+  }
+}
+
+function detachClient(ws) {
+  clients.delete(ws)
+  if (clients.size === 0) {
+    stopSharedCapture()
+  }
+}
+
+function stopSharedCapture() {
+  if (!capture) return
+  try {
+    capture.stop()
+  } catch (e) {
+    console.error('Capture stop error:', e)
+  }
+  capture = null
+}
+
+function startSharedCapture() {
+  capture = new ScreenCapture(
+    async (frame) => {
+      if (isProcessing) return
+      if (clients.size === 0) return
+
+      isProcessing = true
+      try {
+        let pipeline = sharp(frame.rgba, {
+          raw: {
+            width: frame.width,
+            height: frame.height,
+            channels: 4,
+          },
+        })
+
+        if (MAX_WIDTH > 0 && frame.width > MAX_WIDTH) {
+          pipeline = pipeline.resize({
+            width: MAX_WIDTH,
+            height: Math.round((frame.height * MAX_WIDTH) / frame.width),
+            fit: 'fill',
+            kernel: 'nearest',
+            fastShrinkOnLoad: true,
+          })
+        }
+
+        const jpegBuffer = await pipeline
+          .jpeg({
+            quality: JPEG_QUALITY,
+            mozjpeg: process.platform !== 'win32',
+            progressive: false,
+            optimiseScans: false,
+            trellisQuantisation: false,
+            overshootDeringing: false,
+            optimiseCoding: false,
+          })
+          .toBuffer()
+
+        encodedFrames++
+        for (const ws of clients) {
+          if (ws.readyState !== WebSocket.OPEN) continue
+          if (ws.bufferedAmount > 2 * 1024 * 1024) continue
+          ws.send(jpegBuffer, { binary: true, compress: false })
+          broadcastFrames++
+        }
+      } catch (err) {
+        console.error('Frame processing error:', err)
+      } finally {
+        isProcessing = false
+      }
+    },
+    { fps: CAP_FPS },
+  )
+
+  capture
+    .start()
+    .then(() => {
+      console.log('Screen capture started')
+    })
+    .catch((err) => {
+      console.error('Failed to start capture:', err)
+      stopSharedCapture()
+      for (const ws of clients) {
+        try {
+          ws.close()
+        } catch {}
+      }
+      clients.clear()
+    })
+}
