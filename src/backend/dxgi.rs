@@ -11,13 +11,14 @@ use napi::Status;
 use windows::core::Interface;
 use windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_UNKNOWN, D3D_FEATURE_LEVEL_11_0};
 use windows::Win32::Graphics::Direct3D11::{
-  D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D, D3D11_BIND_FLAG,
-  D3D11_CPU_ACCESS_READ, D3D11_CREATE_DEVICE_FLAG, D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC,
-  D3D11_USAGE_STAGING,
+  D3D11CreateDevice, D3D11_BIND_FLAG, D3D11_CPU_ACCESS_FLAG, D3D11_CPU_ACCESS_READ,
+  D3D11_CREATE_DEVICE_FLAG, D3D11_MAP, D3D11_MAP_READ, D3D11_RESOURCE_MISC_FLAG,
+  D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING, ID3D11Device, ID3D11DeviceContext,
+  ID3D11Texture2D,
 };
 use windows::Win32::Graphics::Dxgi::{
-  CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput1, IDXGIResource,
-  DXGI_ERROR_WAIT_TIMEOUT, DXGI_MAP_READ, DXGI_OUTDUPL_FRAME_INFO,
+  CreateDXGIFactory1, DXGI_ERROR_WAIT_TIMEOUT, DXGI_OUTDUPL_FRAME_INFO, IDXGIAdapter1,
+  IDXGIFactory1, IDXGIOutput1, IDXGIResource,
 };
 
 use super::{CaptureBackendImpl, FrameDataInternal, FrameTsfnType};
@@ -70,6 +71,8 @@ impl DxgiBackend {
       // Actually, we can keep the logic in start(), but `windows.rs` needs to know if it SHOULD use DXGI.
       // Let's assume if we can create device and find output, we are good to GO.
       // A full duplication test might be too heavy or cause flicker.
+      let _ = device;
+      let _ = output1;
     }
 
     Ok(Self {
@@ -183,9 +186,9 @@ unsafe fn run_capture_loop(running: Arc<AtomicBool>, tsfn: FrameTsfnType, fps: u
             current_desc.Width != desc.Width || current_desc.Height != desc.Height
           } {
             desc.Usage = D3D11_USAGE_STAGING;
-            desc.BindFlags = D3D11_BIND_FLAG(0); // 0 for staging
-            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-            desc.MiscFlags = windows::Win32::Graphics::Direct3D11::D3D11_RESOURCE_MISC_FLAG(0);
+            desc.BindFlags = 0; // 0 for staging
+            desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ.0 as u32;
+            desc.MiscFlags = 0;
 
             let mut new_staging: Option<ID3D11Texture2D> = None;
             device.CreateTexture2D(&desc, None, Some(&mut new_staging))?;
@@ -198,7 +201,7 @@ unsafe fn run_capture_loop(running: Arc<AtomicBool>, tsfn: FrameTsfnType, fps: u
             // Map
             let mut mapped =
               windows::Win32::Graphics::Direct3D11::D3D11_MAPPED_SUBRESOURCE::default();
-            context.Map(staging, 0, DXGI_MAP_READ, 0, Some(&mut mapped))?;
+            context.Map(staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped))?;
 
             let width = desc.Width;
             let height = desc.Height;
