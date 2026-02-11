@@ -27,7 +27,7 @@ pnpm add @vertfrag/rs-capture
 | Platform | Architecture | Backend                          |
 | -------- | ------------ | -------------------------------- |
 | macOS    | x64, arm64   | ScreenCaptureKit (Default), XCap |
-| Windows  | x64, arm64   | XCap                             |
+| Windows  | x64, arm64   | DXGI (GDI fallback), XCap        |
 | Linux    | x64          | XCap                             |
 
 ## Usage
@@ -53,6 +53,11 @@ const config = {
 try {
   // Initialize the capturer
   const capturer = new ScreenCapture(onFrame, config)
+
+  // Take a single screenshot
+  console.log('Taking screenshot...')
+  const frame = await capturer.screenshot()
+  console.log(`Screenshot captured: ${frame.width}x${frame.height}`)
 
   // Start capturing
   console.log('Starting capture...')
@@ -88,6 +93,10 @@ Starts the screen capture session asynchronously. Returns a Promise that resolve
 #### `stop(): void`
 
 Stops the screen capture session immediately.
+
+#### `screenshot(): Promise<FrameData>`
+
+Captures a single frame immediately. Returns a Promise that resolves with the captured `FrameData`.
 
 ### `FrameData`
 

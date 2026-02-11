@@ -34,7 +34,7 @@ pub struct ScreenCaptureConfig {
 #[napi]
 pub struct ScreenCapture {
   backend: Arc<StdMutex<Option<Box<dyn CaptureBackendImpl>>>>,
-  tsfn: FrameTsfnType,
+  tsfn: Option<FrameTsfnType>,
   fps: u32,
 }
 
@@ -42,30 +42,54 @@ pub struct ScreenCapture {
 impl ScreenCapture {
   #[napi(
     constructor,
-    ts_args_type = "callback: (frame: FrameData) => void, config?: ScreenCaptureConfig | null"
+    ts_args_type = "callbackOrConfig?: ((frame: FrameData) => void) | ScreenCaptureConfig, config?: ScreenCaptureConfig | null"
   )]
-  pub fn new(callback: Function<'_, (), ()>, config: Option<ScreenCaptureConfig>) -> Result<Self> {
-    let tsfn: FrameTsfnType = Arc::new(
-      callback
-        .build_threadsafe_function::<FrameDataInternal>()
-        .build_callback(|ctx| {
-          let frame: FrameDataInternal = ctx.value;
-          let mut js_obj = Object::new(&ctx.env)?;
+  pub fn new(
+    _env: Env,
+    arg0: Option<Either<Function, ScreenCaptureConfig>>,
+    arg1: Option<ScreenCaptureConfig>,
+  ) -> Result<Self> {
+    let mut callback_func: Option<Function> = None;
+    let mut config_obj: Option<ScreenCaptureConfig> = None;
 
-          js_obj.set_named_property("width", frame.width)?;
-          js_obj.set_named_property("height", frame.height)?;
-          js_obj.set_named_property("stride", frame.stride)?;
+    if let Some(arg) = arg0 {
+      match arg {
+        Either::A(cb) => {
+          callback_func = Some(cb);
+          config_obj = arg1;
+        }
+        Either::B(cfg) => {
+          config_obj = Some(cfg);
+        }
+      }
+    }
 
-          let buf = Buffer::from(frame.data);
-          js_obj.set_named_property("rgba", buf)?;
-          Ok(js_obj.raw())
-        })?,
-    );
+    let tsfn = if let Some(func) = callback_func {
+      let func_casted: Function<(), ()> = unsafe { std::mem::transmute(func) };
+      Some(Arc::new(
+        func_casted
+          .build_threadsafe_function::<FrameDataInternal>()
+          .build_callback(|ctx| {
+            let frame: FrameDataInternal = ctx.value;
+            let mut js_obj = Object::new(&ctx.env)?;
+
+            js_obj.set_named_property("width", frame.width)?;
+            js_obj.set_named_property("height", frame.height)?;
+            js_obj.set_named_property("stride", frame.stride)?;
+
+            let buf = Buffer::from(frame.data);
+            js_obj.set_named_property("rgba", buf)?;
+            Ok(js_obj.raw())
+          })?,
+      ))
+    } else {
+      None
+    };
 
     let mut backend_enum = None;
     let mut fps = 60;
 
-    if let Some(cfg) = &config {
+    if let Some(cfg) = &config_obj {
       backend_enum = cfg.backend;
       if let Some(f) = cfg.fps {
         fps = f;
@@ -136,6 +160,34 @@ impl ScreenCapture {
       backend.stop()
     } else {
       Ok(())
+    }
+  }
+
+  #[napi]
+  pub async fn screenshot(&self) -> Result<FrameData> {
+    let backend_opt = {
+      let mut backend_guard = self.backend.lock().unwrap();
+      backend_guard.take()
+    };
+
+    if let Some(mut backend) = backend_opt {
+      let result = backend.screenshot().await;
+
+      let mut backend_guard = self.backend.lock().unwrap();
+      *backend_guard = Some(backend);
+
+      let frame = result?;
+      Ok(FrameData {
+        width: frame.width,
+        height: frame.height,
+        stride: frame.stride,
+        rgba: frame.data.into(),
+      })
+    } else {
+      Err(Error::new(
+        Status::GenericFailure,
+        "Backend is busy or missing".to_string(),
+      ))
     }
   }
 }

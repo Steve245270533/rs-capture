@@ -366,6 +366,9 @@ impl DxgiState {
 
     self.context.CopyResource(staging, &texture);
 
+    // Wait for copy to complete? Actually CopyResource is executed by GPU but we Map immediately.
+    // D3D11 Map on Staging texture should sync automatically.
+
     let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
     if let Err(e) = self
       .context
@@ -382,7 +385,12 @@ impl DxgiState {
     let src_stride = mapped.RowPitch as usize;
     let src_ptr = mapped.pData as *const u8;
 
-    let data = bgra_to_rgba_compact(src_ptr, src_stride, width, height);
+    // Check if data is all zeros (debug)
+    // let slice = std::slice::from_raw_parts(src_ptr, src_stride * height as usize);
+    // let sum: u64 = slice.iter().map(|&x| x as u64).sum();
+    // eprintln!("Captured frame sum: {}", sum);
+
+    let data = bgra_to_rgba_compact_opaque(src_ptr, src_stride, width, height);
 
     self.context.Unmap(staging, 0);
 
@@ -472,7 +480,7 @@ fn bgra_to_rgba_compact_opaque(
 impl CaptureBackendImpl for DxgiBackend {
   fn start<'a>(
     &'a mut self,
-    tsfn: FrameTsfnType,
+    tsfn: Option<FrameTsfnType>,
     fps: u32,
   ) -> Pin<Box<dyn Future<Output = napi::Result<()>> + Send + 'a>> {
     Box::pin(async move {
@@ -503,9 +511,67 @@ impl CaptureBackendImpl for DxgiBackend {
     }
     Ok(())
   }
+
+  fn screenshot<'a>(
+    &'a mut self,
+  ) -> Pin<Box<dyn Future<Output = napi::Result<FrameDataInternal>> + Send + 'a>> {
+    Box::pin(async move {
+      let mut mode = unsafe { init_capture_mode() }
+        .map_err(|e| napi::Error::new(Status::GenericFailure, format!("Init failed: {:?}", e)))?;
+
+      // Try a few times in case of timeout
+      for _ in 0..10 {
+        match &mut mode {
+          CaptureMode::Dxgi(state) => match unsafe { state.capture_frame(100) } {
+            Ok(Some(frame)) => {
+              // Check if frame is empty (all zeros), which can happen on first capture
+              let sum: u64 = frame.data.iter().step_by(100).map(|&x| x as u64).sum();
+              if sum == 0 {
+                // eprintln!("DXGI capture returned empty frame, retrying...");
+                thread::sleep(Duration::from_millis(50));
+                continue;
+              }
+              return Ok(frame);
+            }
+            Ok(None) => continue, // Timeout, retry
+            Err(DxgiCaptureError::AccessLost(_)) | Err(DxgiCaptureError::Other(_)) => {
+              // Fallback to GDI
+              match unsafe { GdiState::new() } {
+                Ok(gdi) => mode = CaptureMode::Gdi(gdi),
+                Err(e) => {
+                  return Err(napi::Error::new(
+                    Status::GenericFailure,
+                    format!("GDI Fallback failed: {:?}", e),
+                  ))
+                }
+              }
+            }
+          },
+          CaptureMode::Gdi(gdi) => {
+            let frame = unsafe { gdi.capture_frame() }.map_err(|e| {
+              napi::Error::new(
+                Status::GenericFailure,
+                format!("GDI capture failed: {:?}", e),
+              )
+            })?;
+            return Ok(frame);
+          }
+        }
+      }
+
+      Err(napi::Error::new(
+        Status::GenericFailure,
+        "Screenshot timed out".to_string(),
+      ))
+    })
+  }
 }
 
-unsafe fn run_capture_loop(running: Arc<AtomicBool>, tsfn: FrameTsfnType, fps: u32) -> Result<()> {
+unsafe fn run_capture_loop(
+  running: Arc<AtomicBool>,
+  tsfn: Option<FrameTsfnType>,
+  fps: u32,
+) -> Result<()> {
   let mut mode = init_capture_mode()?;
   let target_interval = Duration::from_secs_f64(1.0 / fps as f64);
 
@@ -515,9 +581,11 @@ unsafe fn run_capture_loop(running: Arc<AtomicBool>, tsfn: FrameTsfnType, fps: u
     match &mut mode {
       CaptureMode::Dxgi(state) => match state.capture_frame(100) {
         Ok(Some(frame)) => {
-          let status = tsfn.call(frame, ThreadsafeFunctionCallMode::NonBlocking);
-          if status != Status::Ok {
-            running.store(false, Ordering::SeqCst);
+          if let Some(tsfn) = &tsfn {
+            let status = tsfn.call(frame, ThreadsafeFunctionCallMode::NonBlocking);
+            if status != Status::Ok {
+              running.store(false, Ordering::SeqCst);
+            }
           }
         }
         Ok(None) => {}
@@ -538,9 +606,11 @@ unsafe fn run_capture_loop(running: Arc<AtomicBool>, tsfn: FrameTsfnType, fps: u
       },
       CaptureMode::Gdi(gdi) => {
         let frame = gdi.capture_frame()?;
-        let status = tsfn.call(frame, ThreadsafeFunctionCallMode::NonBlocking);
-        if status != Status::Ok {
-          running.store(false, Ordering::SeqCst);
+        if let Some(tsfn) = &tsfn {
+          let status = tsfn.call(frame, ThreadsafeFunctionCallMode::NonBlocking);
+          if status != Status::Ok {
+            running.store(false, Ordering::SeqCst);
+          }
         }
       }
     }

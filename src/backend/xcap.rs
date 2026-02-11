@@ -6,7 +6,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use napi::threadsafe_function::ThreadsafeFunctionCallMode;
-use napi::{Result, Status};
+use napi::{Error, Result, Status};
 use xcap::Monitor;
 
 use super::{CaptureBackendImpl, FrameDataInternal, FrameTsfnType};
@@ -34,7 +34,7 @@ impl Default for XCapBackend {
 impl CaptureBackendImpl for XCapBackend {
   fn start<'a>(
     &'a mut self,
-    tsfn: FrameTsfnType,
+    tsfn: Option<FrameTsfnType>,
     fps: u32,
   ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
     Box::pin(async move {
@@ -66,21 +66,23 @@ impl CaptureBackendImpl for XCapBackend {
           let start = Instant::now();
           match monitor.capture_image() {
             Ok(img) => {
-              let width = img.width();
-              let height = img.height();
-              let data = img.into_raw();
-              let stride = width * 4;
+              if let Some(tsfn) = &tsfn {
+                let width = img.width();
+                let height = img.height();
+                let data = img.into_raw();
+                let stride = width * 4;
 
-              let frame = FrameDataInternal {
-                width,
-                height,
-                stride,
-                data,
-              };
+                let frame = FrameDataInternal {
+                  width,
+                  height,
+                  stride,
+                  data,
+                };
 
-              let status = tsfn.call(frame, ThreadsafeFunctionCallMode::NonBlocking);
-              if status != Status::Ok {
-                break;
+                let status = tsfn.call(frame, ThreadsafeFunctionCallMode::NonBlocking);
+                if status != Status::Ok {
+                  break;
+                }
               }
             }
             Err(e) => {
@@ -107,5 +109,42 @@ impl CaptureBackendImpl for XCapBackend {
       let _ = handle.join();
     }
     Ok(())
+  }
+
+  fn screenshot<'a>(
+    &'a mut self,
+  ) -> Pin<Box<dyn Future<Output = Result<FrameDataInternal>> + Send + 'a>> {
+    Box::pin(async move {
+      let monitors = Monitor::all().map_err(|e| {
+        Error::new(
+          Status::GenericFailure,
+          format!("Failed to get monitors: {}", e),
+        )
+      })?;
+
+      if monitors.is_empty() {
+        return Err(Error::new(
+          Status::GenericFailure,
+          "No monitors found".to_string(),
+        ));
+      }
+
+      let monitor = &monitors[0];
+      let img = monitor
+        .capture_image()
+        .map_err(|e| Error::new(Status::GenericFailure, format!("Capture failed: {}", e)))?;
+
+      let width = img.width();
+      let height = img.height();
+      let data = img.into_raw();
+      let stride = width * 4;
+
+      Ok(FrameDataInternal {
+        width,
+        height,
+        stride,
+        data,
+      })
+    })
   }
 }

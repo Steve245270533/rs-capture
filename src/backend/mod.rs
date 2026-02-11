@@ -18,10 +18,14 @@ pub type FrameTsfnType = Arc<FrameTsfn>;
 pub trait CaptureBackendImpl: Send + Sync {
   fn start<'a>(
     &'a mut self,
-    tsfn: FrameTsfnType,
+    tsfn: Option<FrameTsfnType>,
     fps: u32,
   ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>>;
   fn stop(&mut self) -> Result<()>;
+
+  fn screenshot<'a>(
+    &'a mut self,
+  ) -> Pin<Box<dyn Future<Output = Result<FrameDataInternal>> + Send + 'a>>;
 }
 
 #[cfg(target_os = "windows")]

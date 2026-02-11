@@ -27,7 +27,7 @@ pnpm add @vertfrag/rs-capture
 | 平台    | 架构       | 后端                          |
 | ------- | ---------- | ----------------------------- |
 | macOS   | x64, arm64 | ScreenCaptureKit (默认), XCap |
-| Windows | x64, arm64 | XCap                          |
+| Windows | x64, arm64 | DXGI (GDI 回退), XCap         |
 | Linux   | x64        | XCap                          |
 
 ## 使用方法
@@ -53,6 +53,11 @@ const config = {
 try {
   // 初始化捕获器
   const capturer = new ScreenCapture(onFrame, config)
+
+  // 获取单个截图
+  console.log('Taking screenshot...')
+  const frame = await capturer.screenshot()
+  console.log(`Screenshot captured: ${frame.width}x${frame.height}`)
 
   // 开始捕获
   console.log('Starting capture...')
@@ -88,6 +93,10 @@ try {
 #### `stop(): void`
 
 立即停止屏幕捕获会话。
+
+#### `screenshot(): Promise<FrameData>`
+
+立即捕获单个帧。返回一个解析为 `FrameData` 的 Promise。
 
 ### `FrameData`
 
