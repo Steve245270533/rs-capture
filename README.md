@@ -2,14 +2,14 @@
 
 [中文文档](./README.zh-CN.md)
 
-Cross-platform screen capture library for Node.js powered by Rust.
+Screen capture library for Node.js powered by Rust.
 
-`rs-capture` provides high-performance screen capturing capabilities by leveraging native APIs through Rust. It uses **ScreenCaptureKit** on macOS for optimal performance and falls back to **XCap** (WebRTC/other native APIs) for cross-platform compatibility (Windows, Linux).
+`rs-capture` provides high-performance screen capture by leveraging native APIs through Rust. It uses **ScreenCaptureKit** on macOS for optimal performance, and uses **DXGI (with GDI fallback)** on Windows by default. **XCap** is also available as an optional backend.
 
 ## Features
 
 - 🚀 **High Performance**: Built with Rust and N-API for minimal overhead.
-- 🖥️ **Cross-Platform**: Supports macOS, Windows, and Linux.
+- 🖥️ **Cross-Platform**: Supports macOS and Windows.
 - 🍎 **ScreenCaptureKit Support**: Utilizes Apple's latest ScreenCaptureKit on macOS for efficient, low-latency capture.
 - 🔧 **Configurable**: Control frame rate (FPS) and backend selection.
 - 📦 **Easy Integration**: Simple callback-based API receiving raw RGBA frame data.
@@ -28,7 +28,6 @@ pnpm add @vertfrag/rs-capture
 | -------- | ------------ | -------------------------------- |
 | macOS    | x64, arm64   | ScreenCaptureKit (Default), XCap |
 | Windows  | x64, arm64   | DXGI (GDI fallback), XCap        |
-| Linux    | x64          | XCap                             |
 
 ## Usage
 
@@ -44,7 +43,7 @@ const onFrame = (frame) => {
 
 // Configuration (Optional)
 const config = {
-  fps: 60, // Target FPS (Default: 60)
+  fps: 60, // Capture sampling rate (Default: 60). It tries to sample up to 60 times per second.
   // On macOS, you can explicitly choose the backend.
   // Defaults to ScreenCaptureKit on macOS, and XCap on others.
   backend: CaptureBackend.ScreenCaptureKit,
@@ -84,7 +83,7 @@ The main class for controlling screen capture.
 Creates a new `ScreenCapture` instance.
 
 - **callback**: A function called whenever a new frame is captured. The callback receives a `FrameData` object.
-- **config**: Optional configuration object to control backend and FPS.
+- **config**: Optional configuration object to control backend and FPS (sampling rate).
 
 #### `start(): Promise<void>`
 
@@ -111,10 +110,10 @@ The object passed to the callback function.
 
 ### `ScreenCaptureConfig`
 
-| Property  | Type             | Description                                |
-| --------- | ---------------- | ------------------------------------------ |
-| `fps`     | `number`         | Target frames per second. Default is `60`. |
-| `backend` | `CaptureBackend` | Explicitly choose the capture backend.     |
+| Property  | Type             | Description                                                           |
+| --------- | ---------------- | --------------------------------------------------------------------- |
+| `fps`     | `number`         | Capture sampling rate (attempted frames per second). Default is `60`. |
+| `backend` | `CaptureBackend` | Explicitly choose the capture backend.                                |
 
 ### `CaptureBackend`
 
