@@ -3,10 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start:ws": "node server_ws.js",
-    "start:webrtc": "node server_webrtc.js"
+    "start:ws": "node --env-file .env server_ws.js",
+    "start:webrtc": "node --env-file .env server_webrtc.js"
   },
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@nut-tree/nut-js": "^3.1.2",
     "@roamhq/wrtc": "^0.9.1",
     "@vertfrag/rs-capture": "workspace:*",

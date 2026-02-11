@@ -58,7 +58,7 @@ function startCapture() {
         rotation: 0,
       })
     },
-    { fps: 60, backend: 'ScreenCaptureKit' },
+    { fps: 60 },
   )
 
   capture.start()
