@@ -330,7 +330,7 @@ impl CaptureBackendImpl for SCKBackend {
       };
 
       self.stream = Some(stream_wrapper.0);
-      self.delegate = delegate_wrapper.0.map(|d| d.0);
+      self.delegate = delegate_wrapper.map(|d| d.0);
 
       Ok(())
     })
@@ -377,7 +377,7 @@ impl CaptureBackendImpl for SCKBackend {
         .map_err(|e| Error::new(Status::GenericFailure, format!("Await error: {:?}", e)))?;
       let content_res = content_opt.map_err(|e| Error::new(Status::GenericFailure, e))?;
 
-      let (stream_wrapper, delegate_wrapper) = {
+      let (stream_wrapper, _delegate_wrapper, frame_rx) = {
         let content = content_res.0;
         let displays = unsafe { content.displays() };
         let display = displays
@@ -432,7 +432,7 @@ impl CaptureBackendImpl for SCKBackend {
       };
 
       // Wait for frame
-      let frame_res = stream_wrapper.2.await;
+      let frame_res = frame_rx.await;
 
       // Stop capture
       let stream = stream_wrapper.0;
