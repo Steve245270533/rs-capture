@@ -127,7 +127,7 @@ export const enum CaptureBackend {
 ```
 
 - **ScreenCaptureKit**: 使用 macOS 原生 ScreenCaptureKit（高性能，macOS 12.3+）。
-- **XCap**: 使用跨平台实现（基于 WebRTC/原生 API）。
+- **XCap**: 使用跨平台实现。
 
 ## 开发
 

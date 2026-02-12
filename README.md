@@ -127,7 +127,7 @@ export const enum CaptureBackend {
 ```
 
 - **ScreenCaptureKit**: Uses macOS native ScreenCaptureKit (High performance, macOS 12.3+).
-- **XCap**: Uses a cross-platform implementation (based on WebRTC/native APIs).
+- **XCap**: Uses a cross-platform implementation.
 
 ## Development
 
