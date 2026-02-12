@@ -7,83 +7,226 @@
     <script src="/socket.io/socket.io.js"></script>
     <style>
       body {
-        font-family: sans-serif;
+        margin: 0;
+        padding: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
-        background: #f0f0f0;
+        background: #1a1a1a;
+        color: white;
+        font-family: sans-serif;
+        min-height: 100vh;
       }
-      video {
-        width: 80%;
-        max-width: 1280px;
-        border: 1px solid #ccc;
-        background: black;
-      }
-      .status {
-        margin: 10px;
-        padding: 10px;
-        background: white;
+      #status {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 5px 10px;
+        background: rgba(0, 0, 0, 0.5);
         border-radius: 4px;
+        font-size: 12px;
+        z-index: 10;
+      }
+      #fps {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 5px 10px;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: bold;
+        z-index: 10;
+      }
+      .container {
+        position: relative;
+        width: 100%;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      video, canvas {
+        max-width: 100%;
+        max-height: 100vh;
+        object-fit: contain;
+      }
+      #remoteVideo {
+        display: none; /* Only show if worker fails */
       }
     </style>
   </head>
   <body>
-    <h1>WebRTC Screen Stream</h1>
-    <div class="status" id="status">Connecting...</div>
-    <video id="remoteVideo" autoplay playsinline controls></video>
+    <div id="fps">FPS: 0</div>
+    <div id="status">Connecting...</div>
+    <div class="container">
+      <canvas id="streamCanvas"></canvas>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
 
     <script>
       const socket = io()
       const video = document.getElementById('remoteVideo')
+      const canvas = document.getElementById('streamCanvas')
       const status = document.getElementById('status')
+      const fpsEl = document.getElementById('fps')
+
+      let worker = null
+      let processor = null
+      const candidateQueue = []
+      const WEBRTC_BITRATE = 15000 // Match server setting
 
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
       })
 
+      /**
+       * SDP Munging to increase bitrate
+       */
+      function mungeSdp(sdp, bitrate) {
+        let lines = sdp.split('\r\n')
+        const mVideoIndex = lines.findIndex(line => line.startsWith('m=video'))
+        if (mVideoIndex !== -1) {
+          lines.splice(mVideoIndex + 1, 0, `b=AS:${bitrate}`)
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith('a=fmtp')) {
+              lines[i] += `;x-google-min-bitrate=${bitrate};x-google-max-bitrate=${bitrate};x-google-start-bitrate=${bitrate}`
+            }
+          }
+        }
+        return lines.join('\r\n')
+      }
+
       pc.ontrack = (event) => {
         console.log('Track received:', event)
-        if (event.streams && event.streams[0]) {
-          video.srcObject = event.streams[0]
-          console.log('Using existing stream from event')
+        const track = event.track
+
+        // Use detail content hint if possible
+        if ('contentHint' in track) {
+          track.contentHint = 'detail'
+        }
+
+        const canUseWorker = 'MediaStreamTrackProcessor' in window &&
+                           typeof canvas.transferControlToOffscreen === 'function'
+
+        if (canUseWorker) {
+          console.log('Using Worker + OffscreenCanvas for rendering')
+          video.style.display = 'none'
+          canvas.style.display = 'block'
+          setupWorker(track)
         } else {
-          console.log('No stream in event, creating new MediaStream from track')
-          const inboundStream = new MediaStream()
-          inboundStream.addTrack(event.track)
-          video.srcObject = inboundStream
+          console.log('Falling back to <video> rendering')
+          video.style.display = 'block'
+          canvas.style.display = 'none'
+          if (event.streams && event.streams[0]) {
+            video.srcObject = event.streams[0]
+          } else {
+            const inboundStream = new MediaStream()
+            inboundStream.addTrack(track)
+            video.srcObject = inboundStream
+          }
+          setupVideoFpsCounter()
         }
         status.textContent = 'Stream received!'
       }
 
+      function setupVideoFpsCounter() {
+        let frameCount = 0
+        let lastTime = performance.now()
+
+        const updateFps = (now) => {
+          frameCount++
+          const delta = now - lastTime
+          if (delta >= 1000) {
+            const fps = Math.round((frameCount * 1000) / delta)
+            fpsEl.textContent = `FPS: ${fps}`
+            frameCount = 0
+            lastTime = now
+          }
+
+          if ('requestVideoFrameCallback' in video) {
+            video.requestVideoFrameCallback(updateFps)
+          } else {
+            requestAnimationFrame(updateFps)
+          }
+        }
+
+        if ('requestVideoFrameCallback' in video) {
+          video.requestVideoFrameCallback(updateFps)
+        } else {
+          requestAnimationFrame(updateFps)
+        }
+      }
+
+      function setupWorker(track) {
+        if (!worker) {
+          worker = new Worker('webrtc-worker.js')
+          const offscreen = canvas.transferControlToOffscreen()
+          worker.postMessage({ type: 'init', canvas: offscreen }, [offscreen])
+
+          worker.onmessage = (e) => {
+            if (e.data.type === 'fps') {
+              fpsEl.textContent = `FPS: ${e.data.value}`
+            }
+          }
+        }
+
+        processor = new MediaStreamTrackProcessor({ track })
+        const readable = processor.readable
+        worker.postMessage({ type: 'stream', readable }, [readable])
+      }
+
       pc.onicecandidate = (event) => {
         if (event.candidate) {
+          console.log('Local candidate:', event.candidate.candidate)
           socket.emit('candidate', event.candidate)
         }
       }
 
       pc.onconnectionstatechange = () => {
-        status.textContent = `Connection State: ${pc.connectionState}`
+        console.log('Connection state:', pc.connectionState)
+        status.textContent = `PC: ${pc.connectionState}`
       }
 
-      socket.on('connect', async () => {
-        status.textContent = 'Socket connected. Waiting for stream...'
-        // Client waits for offer from server
+      socket.on('connect', () => {
+        console.log('Socket connected')
+        status.textContent = 'Socket connected'
       })
 
       socket.on('offer', async (offer) => {
         console.log('Received offer')
-        await pc.setRemoteDescription(offer)
-        const answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        socket.emit('answer', answer)
-      })
+        try {
+          // Munge offer SDP
+          offer.sdp = mungeSdp(offer.sdp, WEBRTC_BITRATE)
+          await pc.setRemoteDescription(offer)
 
-      socket.on('answer', async (answer) => {
-        await pc.setRemoteDescription(answer)
+          const answer = await pc.createAnswer()
+          // Munge answer SDP
+          answer.sdp = mungeSdp(answer.sdp, WEBRTC_BITRATE)
+          await pc.setLocalDescription(answer)
+
+          socket.emit('answer', answer)
+
+          // Process queued candidates
+          while (candidateQueue.length > 0) {
+            const candidate = candidateQueue.shift()
+            await pc.addIceCandidate(candidate)
+          }
+        } catch (e) {
+          console.error('Error handling offer:', e)
+        }
       })
 
       socket.on('candidate', async (candidate) => {
-        await pc.addIceCandidate(candidate)
+        try {
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(candidate)
+          } else {
+            candidateQueue.push(candidate)
+          }
+        } catch (e) {
+          console.error('Error adding ice candidate:', e)
+        }
       })
     </script>
   </body>
